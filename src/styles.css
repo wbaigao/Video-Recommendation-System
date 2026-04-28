@@ -351,9 +351,16 @@ input {
   stroke: var(--prerequisite);
 }
 
-.node.concept circle {
+.node.concept circle,
+.node.core circle,
+.node.related circle {
   fill: #e2f3ef;
   stroke: var(--concept);
+}
+
+.node.application circle {
+  fill: #f4edff;
+  stroke: #7657b8;
 }
 
 .node.selected circle {

@@ -29,11 +29,18 @@ const graphSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "label", "type", "description", "x", "y"],
+        required: ["id", "label", "type", "depth", "description", "x", "y"],
         properties: {
           id: { type: "string" },
           label: { type: "string" },
-          type: { type: "string", enum: ["target", "prerequisite", "concept"] },
+          type: {
+            type: "string",
+            enum: ["target", "prerequisite", "core", "related", "application"]
+          },
+          depth: {
+            type: "integer",
+            description: "0 表示目标概念，负数表示前置知识，正数表示目标之后的延伸概念。"
+          },
           description: { type: "string" },
           x: { type: "number" },
           y: { type: "number" }
@@ -51,7 +58,7 @@ const graphSchema = {
           to: { type: "string" },
           relation: {
             type: "string",
-            enum: ["prerequisite_of", "part_of", "related_to", "includes", "applied_to", "contrasts_with", "supports"]
+            enum: ["prerequisite_of", "depends_on", "part_of", "related_to", "applied_to", "extends_to"]
           },
           label: { type: "string" }
         }
@@ -64,61 +71,56 @@ function normalizeTopic(value) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-function toId(label) {
-  return label
+function toId(value) {
+  const cleaned = String(value || "")
     .trim()
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
     .replace(/^-|-$/g, "");
+  return cleaned || `node-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function createNode(topic, suffix, type, x, y, description) {
-  const label = suffix ? `${topic}${suffix}` : topic;
-  return {
-    id: suffix ? `${toId(topic)}-${toId(suffix)}` : toId(topic),
-    label,
-    type,
-    x,
-    y,
-    description
-  };
-}
-
-function generateKnowledgeGraph(topicValue) {
+function createPlaceholderGraph(topicValue) {
   const topic = normalizeTopic(topicValue) || "导数";
-
-  const nodes = [
-    createNode(topic, "", "target", 50, 48, `${topic} 是当前用户输入的学习目标，系统会围绕它生成可解释的概念关系。`),
-    createNode(topic, "的基础概念", "prerequisite", 16, 28, `学习 ${topic} 之前通常需要先理解的基础概念。`),
-    createNode(topic, "的前置知识", "prerequisite", 18, 68, `支撑理解 ${topic} 的前置知识点，可用于后续判断学习者是否具备学习条件。`),
-    createNode(topic, "的核心定义", "concept", 46, 18, `${topic} 的定义、基本含义和核心解释。`),
-    createNode(topic, "的表示方法", "concept", 74, 22, `${topic} 在公式、图像、文字或代码中的表达方式。`),
-    createNode(topic, "的关键性质", "concept", 78, 48, `${topic} 的重要性质、规则或约束条件。`),
-    createNode(topic, "的解题方法", "concept", 72, 74, `围绕 ${topic} 的典型解题步骤、使用方法或操作流程。`),
-    createNode(topic, "的应用场景", "concept", 46, 82, `${topic} 在实际问题、课程内容或视频案例中的应用。`),
-    createNode(topic, "的常见误区", "concept", 28, 48, `学习 ${topic} 时容易混淆或理解错误的地方。`)
-  ];
-
-  const rootId = toId(topic);
-  const nodeId = (suffix) => `${rootId}-${toId(suffix)}`;
-  const edges = [
-    { from: nodeId("的基础概念"), to: rootId, relation: "prerequisite_of", label: "前置" },
-    { from: nodeId("的前置知识"), to: rootId, relation: "prerequisite_of", label: "前置" },
-    { from: rootId, to: nodeId("的核心定义"), relation: "has_definition", label: "定义" },
-    { from: nodeId("的核心定义"), to: nodeId("的表示方法"), relation: "represented_by", label: "表示" },
-    { from: nodeId("的核心定义"), to: nodeId("的关键性质"), relation: "has_property", label: "性质" },
-    { from: nodeId("的关键性质"), to: nodeId("的解题方法"), relation: "supports_method", label: "方法" },
-    { from: nodeId("的解题方法"), to: nodeId("的应用场景"), relation: "applied_to", label: "应用" },
-    { from: nodeId("的常见误区"), to: rootId, relation: "clarifies", label: "澄清" },
-    { from: nodeId("的前置知识"), to: nodeId("的核心定义"), relation: "supports", label: "支撑" }
-  ];
-
+  const targetId = toId(topic);
   return {
     topic,
+    summary: "没有填写 API Key 时，系统不会伪造具体前置知识。请填写 API Key 后由 LLM 生成真实局部知识图谱。",
     generatedAt: new Date().toISOString(),
-    generator: "rule-based-dynamic-generator-v1",
-    nodes,
-    edges
+    generator: "placeholder-requires-llm",
+    nodes: [
+      {
+        id: targetId,
+        label: topic,
+        type: "target",
+        depth: 0,
+        x: 50,
+        y: 48,
+        description: `${topic} 是当前学习目标。要获得真实前置知识链，请填写 OpenAI API Key 后重新生成。`
+      },
+      {
+        id: "llm-required",
+        label: "需要 LLM 分析",
+        type: "prerequisite",
+        depth: -1,
+        x: 24,
+        y: 42,
+        description: "具体前置知识不能用固定模板可靠生成，需要 LLM 根据主题语义判断。"
+      },
+      {
+        id: "validated-graph",
+        label: "结构化校验",
+        type: "core",
+        depth: 1,
+        x: 76,
+        y: 54,
+        description: "LLM 返回 nodes 和 edges 后，系统会检查节点去重和关系合法性。"
+      }
+    ],
+    edges: [
+      { from: "llm-required", to: targetId, relation: "prerequisite_of", label: "需要分析" },
+      { from: targetId, to: "validated-graph", relation: "extends_to", label: "生成后校验" }
+    ]
   };
 }
 
@@ -136,11 +138,11 @@ async function generateKnowledgeGraphWithLLM(topicValue, apiKey) {
         {
           role: "system",
           content:
-            "你是教育技术研究系统中的知识图谱生成模块。请根据用户输入的学习主题，生成一个局部、可学习、可用于教育视频推荐的知识图谱。必须使用中文。不要生成诊断问题。"
+            "你是教育推荐系统中的知识图谱生成模块。你的任务是为一个学习主题生成局部知识图谱，重点是发现学习该主题之前必须掌握的具体前置知识。只输出符合 schema 的 JSON。不要生成诊断问题。"
         },
         {
           role: "user",
-          content: `学习主题：${topic}\n\n要求：\n1. 生成 7 到 12 个节点。\n2. 必须包含一个 type 为 target 的目标节点，label 使用用户输入主题。\n3. 至少包含 2 个 prerequisite 前置知识节点。\n4. 其他节点可以是定义、性质、方法、应用、常见误区、相关概念等。\n5. edges 必须只引用 nodes 中存在的 id。\n6. id 使用简短英文或拼音，不能重复。\n7. x 和 y 是可视化坐标，范围 5 到 95。`
+          content: buildKnowledgeGraphPrompt(topic)
         }
       ],
       text: {
@@ -156,8 +158,7 @@ async function generateKnowledgeGraphWithLLM(topicValue, apiKey) {
 
   const body = await response.json();
   if (!response.ok) {
-    const message = body.error?.message || "LLM 请求失败。";
-    throw new Error(message);
+    throw new Error(body.error?.message || "LLM 请求失败。");
   }
 
   const text = extractResponseText(body);
@@ -166,6 +167,27 @@ async function generateKnowledgeGraphWithLLM(topicValue, apiKey) {
   }
 
   return normalizeGraph(JSON.parse(text), topic, "openai-structured-output");
+}
+
+function buildKnowledgeGraphPrompt(topic) {
+  return `
+学习主题：${topic}
+
+请生成“学习 ${topic} 之前需要了解什么”的局部知识图谱。
+
+核心要求：
+1. 节点必须是具体知识点，不能使用“${topic}的基础概念”“${topic}的核心定义”“${topic}的相关概念”这类模板化节点。
+2. 至少生成 3 个具体 prerequisite 节点，并按学习先后形成前置链。
+3. 必须包含 1 个 target 节点，label 必须是“${topic}”。
+4. 可以包含少量 core、related、application 节点，用来说明 ${topic} 本身和后续用途。
+5. edges 必须表达真实学习依赖，例如 A prerequisite_of B 表示学习 B 之前应先理解 A。
+6. 不要为了凑数量加入泛泛节点；宁可少一些，也要具体、可学习、可解释。
+7. description 要说明该节点为什么和学习 ${topic} 有关。
+8. x、y 是可视化坐标，范围 5 到 95。前置知识放左侧，目标放中间，延伸概念放右侧。
+
+输出目标：
+让系统能够根据这张图谱判断用户学习 ${topic} 之前应该先检查哪些前置知识。
+`.trim();
 }
 
 function extractResponseText(body) {
@@ -185,13 +207,17 @@ function extractResponseText(body) {
 }
 
 function normalizeGraph(graph, topic, generator) {
+  const rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const rawEdges = Array.isArray(graph.edges) ? graph.edges : [];
   const seen = new Set();
-  const nodes = graph.nodes
+
+  const nodes = rawNodes
     .map((node, index) => ({
       id: toId(node.id || node.label || `${topic}-${index}`),
-      label: node.label || `${topic}${index + 1}`,
-      type: node.type === "target" || node.type === "prerequisite" ? node.type : "concept",
-      description: node.description || `${node.label} 是与 ${topic} 相关的知识点。`,
+      label: String(node.label || `${topic}${index + 1}`).trim(),
+      type: normalizeNodeType(node.type),
+      depth: Number.isInteger(node.depth) ? node.depth : inferDepth(node.type),
+      description: String(node.description || `${node.label || topic} 是与 ${topic} 相关的知识点。`).trim(),
       x: clampNumber(node.x, 8, 92),
       y: clampNumber(node.y, 8, 92)
     }))
@@ -204,10 +230,11 @@ function normalizeGraph(graph, topic, generator) {
     });
 
   if (!nodes.some((node) => node.type === "target")) {
-    nodes.unshift({
+    nodes.push({
       id: toId(topic),
       label: topic,
       type: "target",
+      depth: 0,
       description: `${topic} 是当前学习目标。`,
       x: 50,
       y: 48
@@ -215,23 +242,71 @@ function normalizeGraph(graph, topic, generator) {
   }
 
   const nodeIds = new Set(nodes.map((node) => node.id));
-  const edges = graph.edges
+  const edges = rawEdges
     .map((edge) => ({
       from: toId(edge.from || ""),
       to: toId(edge.to || ""),
-      relation: edge.relation || "related_to",
-      label: edge.label || relationLabel(edge.relation)
+      relation: normalizeRelation(edge.relation),
+      label: String(edge.label || relationLabel(edge.relation)).trim()
     }))
     .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to) && edge.from !== edge.to);
 
   return {
     topic: graph.topic || topic,
-    summary: graph.summary || `围绕 ${topic} 自动生成的局部知识图谱。`,
+    summary: graph.summary || `围绕 ${topic} 生成的局部前置知识图谱。`,
     generatedAt: new Date().toISOString(),
     generator,
-    nodes,
+    nodes: layoutGraph(nodes),
     edges
   };
+}
+
+function normalizeNodeType(type) {
+  if (["target", "prerequisite", "core", "related", "application"].includes(type)) {
+    return type;
+  }
+  return "related";
+}
+
+function normalizeRelation(relation) {
+  if (["prerequisite_of", "depends_on", "part_of", "related_to", "applied_to", "extends_to"].includes(relation)) {
+    return relation;
+  }
+  return "related_to";
+}
+
+function inferDepth(type) {
+  if (type === "prerequisite") {
+    return -1;
+  }
+  if (type === "target") {
+    return 0;
+  }
+  return 1;
+}
+
+function layoutGraph(nodes) {
+  const groups = {
+    prerequisite: nodes.filter((node) => node.type === "prerequisite"),
+    target: nodes.filter((node) => node.type === "target"),
+    other: nodes.filter((node) => !["prerequisite", "target"].includes(node.type))
+  };
+
+  placeGroup(groups.prerequisite, 18, 20, 80);
+  placeGroup(groups.target, 50, 40, 60);
+  placeGroup(groups.other, 78, 20, 80);
+  return nodes;
+}
+
+function placeGroup(nodes, x, yStart, yEnd) {
+  if (!nodes.length) {
+    return;
+  }
+  const step = nodes.length === 1 ? 0 : (yEnd - yStart) / (nodes.length - 1);
+  nodes.forEach((node, index) => {
+    node.x = x;
+    node.y = nodes.length === 1 ? (yStart + yEnd) / 2 : yStart + step * index;
+  });
 }
 
 function clampNumber(value, min, max) {
@@ -245,12 +320,11 @@ function clampNumber(value, min, max) {
 function relationLabel(relation) {
   const labels = {
     prerequisite_of: "前置",
+    depends_on: "依赖",
     part_of: "组成",
     related_to: "相关",
-    includes: "包含",
     applied_to: "应用",
-    contrasts_with: "对比",
-    supports: "支撑"
+    extends_to: "延伸"
   };
   return labels[relation] || "相关";
 }
@@ -263,15 +337,15 @@ async function generateGraph() {
   const topic = normalizeTopic(dom.topicInput.value) || "导数";
   const apiKey = dom.apiKeyInput.value.trim();
   dom.generateBtn.disabled = true;
-  dom.statusText.textContent = apiKey ? "正在调用 LLM 生成知识图谱..." : "未输入 API Key，使用本地规则生成器。";
+  dom.statusText.textContent = apiKey ? "正在调用 LLM 分析具体前置知识..." : "请填写 API Key。没有 LLM 时不会伪造具体前置知识。";
 
   try {
-    state.graph = apiKey ? await generateKnowledgeGraphWithLLM(topic, apiKey) : generateKnowledgeGraph(topic);
-    dom.statusText.textContent = apiKey ? "LLM 知识图谱生成完成。" : "本地规则知识图谱生成完成。";
+    state.graph = apiKey ? await generateKnowledgeGraphWithLLM(topic, apiKey) : createPlaceholderGraph(topic);
+    dom.statusText.textContent = apiKey ? "LLM 已生成具体前置知识图谱。" : "当前是占位图：填写 API Key 后可生成真实图谱。";
   } catch (error) {
     console.error(error);
-    state.graph = generateKnowledgeGraph(topic);
-    dom.statusText.textContent = `LLM 调用失败，已使用本地规则图谱：${error.message}`;
+    state.graph = createPlaceholderGraph(topic);
+    dom.statusText.textContent = `LLM 调用失败：${error.message}`;
   } finally {
     state.selectedId = (state.graph.nodes.find((node) => node.type === "target") || state.graph.nodes[0]).id;
     dom.generateBtn.disabled = false;
@@ -306,7 +380,7 @@ function renderGraph() {
         <g class="node ${status}" data-node="${node.id}" transform="translate(${scaleX(node.x)}, ${scaleY(node.y)})">
           <circle r="38"></circle>
           ${splitLabel(node.label)
-            .map((line, index, lines) => `<text y="${(index - (lines.length - 1) / 2) * 15 + 4}">${line}</text>`)
+            .map((line, index, lines) => `<text y="${(index - (lines.length - 1) / 2) * 15 + 4}">${escapeHtml(line)}</text>`)
             .join("")}
         </g>
       `;
@@ -336,7 +410,7 @@ function renderInspector() {
         .map((edge) => {
           const from = getNode(edge.from).label;
           const to = getNode(edge.to).label;
-          return `<li><strong>${from}</strong> → <strong>${to}</strong><span class="empty"> · ${edge.label}</span></li>`;
+          return `<li><strong>${escapeHtml(from)}</strong> → <strong>${escapeHtml(to)}</strong><span class="empty"> · ${escapeHtml(edge.label)}</span></li>`;
         })
         .join("")
     : `<li class="empty">当前节点暂无关系。</li>`;
@@ -345,9 +419,18 @@ function renderInspector() {
 }
 
 function render() {
-  dom.graphTitle.textContent = `${state.graph.topic} 知识图谱`;
+  dom.graphTitle.textContent = `${state.graph.topic} 前置知识图谱`;
   renderGraph();
   renderInspector();
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 async function copyGraphJson() {

@@ -32,14 +32,14 @@
           <label for="apiKeyInput">OpenAI API Key</label>
           <input id="apiKeyInput" type="password" placeholder="仅用于本次浏览器会话，不会保存到仓库" autocomplete="off" />
           <p class="method-text">
-            输入 Key 后会调用 LLM 生成具体知识图谱；不输入则使用本地规则生成器。
+            输入 Key 后会调用 LLM 分析具体前置知识；不输入时只显示占位图，不伪造知识图谱。
           </p>
         </section>
 
         <section class="panel">
           <h2>生成方法</h2>
           <p class="method-text">
-            当前版本支持 LLM 生成结构化 JSON 知识图谱，并在前端进行节点去重、关系校验和可视化。
+            当前版本要求 LLM 输出具体前置知识链，而不是“基础概念、核心定义”这类固定模板。
           </p>
         </section>
 
