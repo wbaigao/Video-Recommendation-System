@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Educational Video Knowledge Graph</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <section class="brand">
+          <p class="eyebrow">Learning KG</p>
+          <h1>Educational Video Recommendation System</h1>
+        </section>
+
+        <section class="panel">
+          <label for="domainSelect">Domain</label>
+          <select id="domainSelect"></select>
+        </section>
+
+        <section class="panel">
+          <label for="goalInput">Learning goal</label>
+          <div class="search-row">
+            <input id="goalInput" type="text" placeholder="e.g. Derivative" autocomplete="off" />
+            <button id="analyzeBtn" type="button">Analyze</button>
+          </div>
+          <div id="suggestions" class="suggestions"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Knowledge State</h2>
+            <button id="resetStateBtn" class="ghost-button" type="button">Reset</button>
+          </div>
+          <div id="knowledgeState" class="state-list"></div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="toolbar">
+          <div>
+            <p class="eyebrow">Concept graph</p>
+            <h2 id="domainTitle">Calculus Foundations</h2>
+          </div>
+          <div class="legend">
+            <span><i class="dot known"></i>Known</span>
+            <span><i class="dot weak"></i>Weak</span>
+            <span><i class="dot target"></i>Target</span>
+            <span><i class="line-sample"></i>Prerequisite</span>
+          </div>
+        </header>
+
+        <section class="graph-layout">
+          <div class="graph-card">
+            <svg id="graph" role="img" aria-label="Knowledge graph visualization"></svg>
+          </div>
+
+          <aside class="inspector">
+            <section class="result-block">
+              <p class="eyebrow">Selected concept</p>
+              <h3 id="selectedConcept">Select a concept</h3>
+              <p id="selectedDescription">Click a node or analyze a learning goal to inspect it.</p>
+            </section>
+
+            <section class="result-block">
+              <h3>Prerequisite Chain</h3>
+              <ol id="pathList" class="path-list"></ol>
+            </section>
+
+            <section class="result-block">
+              <h3>Diagnostic Questions</h3>
+              <div id="questionList" class="question-list"></div>
+            </section>
+
+            <section class="result-block">
+              <h3>Video Coverage</h3>
+              <div id="videoList" class="video-list"></div>
+            </section>
+          </aside>
+        </section>
+      </section>
+    </main>
+
+    <script src="./data/knowledge-graph.js"></script>
+    <script src="./src/app.js"></script>
+  </body>
+</html>
