@@ -9,3 +9,5 @@ kg-preview.png
 !.env.example
 tools/neo4j/*.zip
 tools/neo4j/*/
+tools/java/*.zip
+tools/java/*/
