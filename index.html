@@ -29,10 +29,10 @@
         </section>
 
         <section class="panel">
-          <label for="apiKeyInput">OpenAI API Key</label>
-          <input id="apiKeyInput" type="password" placeholder="仅用于本次浏览器会话，不会保存到仓库" autocomplete="off" />
+          <label for="apiEndpointInput">知识图谱生成接口</label>
+          <input id="apiEndpointInput" type="text" value="/api/knowledge-graph" autocomplete="off" />
           <p class="method-text">
-            输入 Key 后会调用 LLM 分析具体前置知识；不输入时只显示占位图，不伪造知识图谱。
+            API Key 由后端环境变量读取，不写入网页或 GitHub 仓库。GitHub Pages 静态页面需要另行部署后端。
           </p>
         </section>
 

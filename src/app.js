@@ -5,7 +5,7 @@ const state = {
 
 const dom = {
   topicInput: document.querySelector("#topicInput"),
-  apiKeyInput: document.querySelector("#apiKeyInput"),
+  apiEndpointInput: document.querySelector("#apiEndpointInput"),
   generateBtn: document.querySelector("#generateBtn"),
   exportBtn: document.querySelector("#exportBtn"),
   graph: document.querySelector("#graph"),
@@ -15,56 +15,6 @@ const dom = {
   selectedDescription: document.querySelector("#selectedDescription"),
   relationList: document.querySelector("#relationList"),
   jsonPreview: document.querySelector("#jsonPreview")
-};
-
-const graphSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["topic", "summary", "nodes", "edges"],
-  properties: {
-    topic: { type: "string" },
-    summary: { type: "string" },
-    nodes: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["id", "label", "type", "depth", "description", "x", "y"],
-        properties: {
-          id: { type: "string" },
-          label: { type: "string" },
-          type: {
-            type: "string",
-            enum: ["target", "prerequisite", "core", "related", "application"]
-          },
-          depth: {
-            type: "integer",
-            description: "0 表示目标概念，负数表示前置知识，正数表示目标之后的延伸概念。"
-          },
-          description: { type: "string" },
-          x: { type: "number" },
-          y: { type: "number" }
-        }
-      }
-    },
-    edges: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["from", "to", "relation", "label"],
-        properties: {
-          from: { type: "string" },
-          to: { type: "string" },
-          relation: {
-            type: "string",
-            enum: ["prerequisite_of", "depends_on", "part_of", "related_to", "applied_to", "extends_to"]
-          },
-          label: { type: "string" }
-        }
-      }
-    }
-  }
 };
 
 function normalizeTopic(value) {
@@ -124,36 +74,14 @@ function createPlaceholderGraph(topicValue) {
   };
 }
 
-async function generateKnowledgeGraphWithLLM(topicValue, apiKey) {
+async function generateKnowledgeGraphWithLLM(topicValue, endpoint) {
   const topic = normalizeTopic(topicValue) || "导数";
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`
+      "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      input: [
-        {
-          role: "system",
-          content:
-            "你是教育推荐系统中的知识图谱生成模块。你的任务是为一个学习主题生成局部知识图谱，重点是发现学习该主题之前必须掌握的具体前置知识。只输出符合 schema 的 JSON。不要生成诊断问题。"
-        },
-        {
-          role: "user",
-          content: buildKnowledgeGraphPrompt(topic)
-        }
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "knowledge_graph",
-          strict: true,
-          schema: graphSchema
-        }
-      }
-    })
+    body: JSON.stringify({ topic })
   });
 
   const body = await response.json();
@@ -161,49 +89,7 @@ async function generateKnowledgeGraphWithLLM(topicValue, apiKey) {
     throw new Error(body.error?.message || "LLM 请求失败。");
   }
 
-  const text = extractResponseText(body);
-  if (!text) {
-    throw new Error("LLM 没有返回可解析的 JSON。");
-  }
-
-  return normalizeGraph(JSON.parse(text), topic, "openai-structured-output");
-}
-
-function buildKnowledgeGraphPrompt(topic) {
-  return `
-学习主题：${topic}
-
-请生成“学习 ${topic} 之前需要了解什么”的局部知识图谱。
-
-核心要求：
-1. 节点必须是具体知识点，不能使用“${topic}的基础概念”“${topic}的核心定义”“${topic}的相关概念”这类模板化节点。
-2. 至少生成 3 个具体 prerequisite 节点，并按学习先后形成前置链。
-3. 必须包含 1 个 target 节点，label 必须是“${topic}”。
-4. 可以包含少量 core、related、application 节点，用来说明 ${topic} 本身和后续用途。
-5. edges 必须表达真实学习依赖，例如 A prerequisite_of B 表示学习 B 之前应先理解 A。
-6. 不要为了凑数量加入泛泛节点；宁可少一些，也要具体、可学习、可解释。
-7. description 要说明该节点为什么和学习 ${topic} 有关。
-8. x、y 是可视化坐标，范围 5 到 95。前置知识放左侧，目标放中间，延伸概念放右侧。
-
-输出目标：
-让系统能够根据这张图谱判断用户学习 ${topic} 之前应该先检查哪些前置知识。
-`.trim();
-}
-
-function extractResponseText(body) {
-  if (body.output_text) {
-    return body.output_text;
-  }
-
-  const chunks = [];
-  for (const item of body.output || []) {
-    for (const content of item.content || []) {
-      if (content.type === "output_text" && content.text) {
-        chunks.push(content.text);
-      }
-    }
-  }
-  return chunks.join("");
+  return normalizeGraph(body, topic, body.generator || "backend-openai");
 }
 
 function normalizeGraph(graph, topic, generator) {
@@ -335,13 +221,13 @@ function getNode(id) {
 
 async function generateGraph() {
   const topic = normalizeTopic(dom.topicInput.value) || "导数";
-  const apiKey = dom.apiKeyInput.value.trim();
+  const endpoint = dom.apiEndpointInput.value.trim();
   dom.generateBtn.disabled = true;
-  dom.statusText.textContent = apiKey ? "正在调用 LLM 分析具体前置知识..." : "请填写 API Key。没有 LLM 时不会伪造具体前置知识。";
+  dom.statusText.textContent = endpoint ? "正在请求后端，让 LLM 分析具体前置知识..." : "请填写知识图谱生成接口。";
 
   try {
-    state.graph = apiKey ? await generateKnowledgeGraphWithLLM(topic, apiKey) : createPlaceholderGraph(topic);
-    dom.statusText.textContent = apiKey ? "LLM 已生成具体前置知识图谱。" : "当前是占位图：填写 API Key 后可生成真实图谱。";
+    state.graph = endpoint ? await generateKnowledgeGraphWithLLM(topic, endpoint) : createPlaceholderGraph(topic);
+    dom.statusText.textContent = endpoint ? "LLM 已生成具体前置知识图谱。" : "当前是占位图：填写接口后可生成真实图谱。";
   } catch (error) {
     console.error(error);
     state.graph = createPlaceholderGraph(topic);
@@ -477,4 +363,7 @@ dom.graph.addEventListener("click", (event) => {
 dom.exportBtn.addEventListener("click", copyGraphJson);
 window.addEventListener("resize", renderGraph);
 
-generateGraph();
+state.graph = createPlaceholderGraph(dom.topicInput.value);
+state.selectedId = state.graph.nodes[0].id;
+dom.statusText.textContent = "等待点击生成。LLM 调用由后端接口完成。";
+render();

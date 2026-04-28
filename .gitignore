@@ -4,3 +4,6 @@ dist/
 Thumbs.db
 *.log
 kg-preview.png
+.env
+.env.*
+!.env.example

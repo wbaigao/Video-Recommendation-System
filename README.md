@@ -32,7 +32,14 @@
 
 如果没有输入 API Key，系统只会显示占位图，提示需要 LLM 分析。这样可以避免把“基础概念、核心定义、应用场景”这类固定模板误当成真实知识图谱。
 
-注意：当前是 GitHub Pages 静态网站，不能把 API Key 写入代码或仓库。页面中的 API Key 只用于本次浏览器会话。正式版应增加后端服务，由后端安全调用 LLM。
+注意：当前 GitHub Pages 只能托管静态页面，不能安全保存 API Key。仓库已加入 `server.js` 本地后端，由后端从 `OPENAI_API_KEY` 环境变量读取 Key 并调用 LLM。正式线上版应部署到 Vercel、Render 或其他支持环境变量的后端平台。
+
+## 本地运行 LLM 生成
+
+1. 复制 `.env.example` 为 `.env`。
+2. 在 `.env` 中填写 `OPENAI_API_KEY`。
+3. 运行 `npm start` 或 `node server.js`。
+4. 打开 `http://localhost:3000`。
 
 ## 后续模块
 
