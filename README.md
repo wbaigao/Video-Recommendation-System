@@ -1,23 +1,23 @@
-# Educational Video Knowledge Graph
+# 教育视频知识图谱
 
-This is the first module of the educational video recommendation system.
+这是教育视频推荐系统的第一个模块。
 
-The current version focuses on the knowledge graph layer:
+当前版本重点完成知识图谱层：
 
-- domain concept nodes
-- prerequisite and supporting relations
-- learner knowledge state labels
-- target concept analysis
-- prerequisite chain generation
-- concept-based diagnostic questions
-- video coverage matching
+- 学习领域概念节点
+- 前置关系和辅助关系
+- 学习者掌握状态标记
+- 学习目标分析
+- 前置知识链生成
+- 基于概念的诊断问题
+- 视频覆盖知识点匹配
 
-Open `index.html` directly in a browser to run the prototype.
+直接在浏览器中打开 `index.html` 即可运行原型。
 
-## Next Modules
+## 后续模块
 
-1. Add real video metadata and subtitles.
-2. Extract concept tags from video text.
-3. Connect LLM-based diagnostic question generation.
-4. Add recommendation scoring with semantic similarity, concept match, and learner level.
-5. Add persistence and GitHub deployment.
+1. 加入真实视频元数据和字幕文本。
+2. 从视频文本中抽取知识点标签。
+3. 接入基于 LLM 的诊断问题生成。
+4. 加入推荐评分：语义相似度、知识点匹配度、学习者水平。
+5. 增加数据持久化和 GitHub 部署。

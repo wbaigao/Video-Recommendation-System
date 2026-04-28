@@ -104,8 +104,8 @@ function renderKnowledgeState() {
       return `
         <div class="state-row">
           <span>${concept.label}</span>
-          <button class="known-btn" type="button" data-state="${concept.id}:known" aria-pressed="${current === "known"}">Known</button>
-          <button class="weak-btn" type="button" data-state="${concept.id}:weak" aria-pressed="${current === "weak"}">Weak</button>
+          <button class="known-btn" type="button" data-state="${concept.id}:known" aria-pressed="${current === "known"}">已掌握</button>
+          <button class="weak-btn" type="button" data-state="${concept.id}:weak" aria-pressed="${current === "weak"}">薄弱</button>
         </div>
       `;
     })
@@ -174,11 +174,12 @@ function renderInspector() {
     ? prerequisiteIds
         .map((id) => {
           const item = getConcept(id);
-          const status = state.learnerState[id] ? ` · ${state.learnerState[id]}` : "";
+          const statusMap = { known: "已掌握", weak: "薄弱" };
+          const status = state.learnerState[id] ? ` · ${statusMap[state.learnerState[id]]}` : "";
           return `<li>${item.label}<span class="empty">${status}</span></li>`;
         })
-        .join("") + `<li><strong>${concept.label}</strong><span class="empty"> · target</span></li>`
-    : `<li><strong>${concept.label}</strong><span class="empty"> · no prerequisite found</span></li>`;
+        .join("") + `<li><strong>${concept.label}</strong><span class="empty"> · 目标</span></li>`
+    : `<li><strong>${concept.label}</strong><span class="empty"> · 暂无前置知识</span></li>`;
 
   dom.questionList.innerHTML = questions.length
     ? questions
@@ -188,7 +189,7 @@ function renderInspector() {
           </article>
         `)
         .join("")
-    : `<p class="empty">No diagnostic question is attached to this concept yet.</p>`;
+    : `<p class="empty">当前概念还没有配置诊断问题。</p>`;
 
   dom.videoList.innerHTML = videos.length
     ? videos
@@ -196,14 +197,23 @@ function renderInspector() {
           <article class="video-card">
             <p><strong>${video.title}</strong></p>
             <div class="video-meta">
-              <span>${video.difficulty}</span>
+              <span>${translateDifficulty(video.difficulty)}</span>
               <span>${video.duration}</span>
-              <span>${video.overlap.length} concept match${video.overlap.length > 1 ? "es" : ""}</span>
+              <span>匹配 ${video.overlap.length} 个知识点</span>
             </div>
           </article>
         `)
         .join("")
-    : `<p class="empty">No video is connected to this concept yet.</p>`;
+    : `<p class="empty">当前概念还没有关联视频。</p>`;
+}
+
+function translateDifficulty(value) {
+  const labels = {
+    beginner: "入门",
+    intermediate: "进阶",
+    advanced: "高级"
+  };
+  return labels[value] || value;
 }
 
 function render() {

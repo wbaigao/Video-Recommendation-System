@@ -1,114 +1,114 @@
 window.KNOWLEDGE_GRAPH_DATA = {
   calculus: {
-    title: "Calculus Foundations",
-    description: "A small concept graph for testing prerequisite-aware educational video recommendation.",
+    title: "微积分基础",
+    description: "用于测试“前置知识感知”的教育视频推荐知识图谱。",
     concepts: [
       {
         id: "function",
-        label: "Function",
+        label: "函数",
         level: 1,
         x: 12,
         y: 48,
-        description: "A relation that maps each input to exactly one output.",
+        description: "函数表示一种输入与输出之间的对应关系，每个输入只能对应一个输出。",
         questions: [
-          "What does it mean for a relation to be a function?",
-          "How can you identify the input and output of a function?"
+          "什么样的关系可以称为函数？",
+          "如何判断一个函数的输入和输出？"
         ]
       },
       {
         id: "graph",
-        label: "Graph",
+        label: "图像",
         level: 1,
         x: 20,
         y: 20,
-        description: "A visual representation of how a function behaves.",
+        description: "图像用于直观表示函数的变化趋势和数值关系。",
         questions: [
-          "What information can you read from the graph of a function?",
-          "How does a graph show increasing and decreasing behavior?"
+          "从函数图像中可以读出哪些信息？",
+          "图像如何体现函数的递增和递减？"
         ]
       },
       {
         id: "limit",
-        label: "Limit",
+        label: "极限",
         level: 2,
         x: 38,
         y: 40,
-        description: "The value a function approaches as the input gets close to a point.",
+        description: "极限描述自变量逐渐接近某个点时，函数值趋近的结果。",
         questions: [
-          "What does a limit describe?",
-          "Can a limit exist when the function value at that point is undefined?"
+          "极限主要描述什么数学现象？",
+          "当函数在某点没有定义时，该点的极限一定不存在吗？"
         ]
       },
       {
         id: "continuity",
-        label: "Continuity",
+        label: "连续性",
         level: 2,
         x: 40,
         y: 68,
-        description: "A property showing that a function has no break at a point or interval.",
+        description: "连续性表示函数在某点或某个区间内没有断裂。",
         questions: [
-          "What conditions are needed for a function to be continuous at a point?",
-          "How is continuity related to limits?"
+          "函数在一点连续需要满足哪些条件？",
+          "连续性和极限之间有什么关系？"
         ]
       },
       {
         id: "derivative",
-        label: "Derivative",
+        label: "导数",
         level: 3,
         x: 62,
         y: 35,
-        description: "A measure of instantaneous rate of change or slope of a tangent line.",
+        description: "导数表示函数的瞬时变化率，也可以理解为切线斜率。",
         questions: [
-          "What does a derivative represent geometrically?",
-          "Why are limits used to define derivatives?"
+          "从几何角度看，导数表示什么？",
+          "为什么定义导数时需要使用极限？"
         ]
       },
       {
         id: "chain-rule",
-        label: "Chain Rule",
+        label: "链式法则",
         level: 4,
         x: 82,
         y: 22,
-        description: "A rule for differentiating composite functions.",
+        description: "链式法则用于求复合函数的导数。",
         questions: [
-          "When should the chain rule be used?",
-          "How do you identify the inner and outer functions?"
+          "什么情况下需要使用链式法则？",
+          "如何识别复合函数中的内层函数和外层函数？"
         ]
       },
       {
         id: "optimization",
-        label: "Optimization",
+        label: "最优化",
         level: 4,
         x: 84,
         y: 48,
-        description: "Using derivatives to find maximum or minimum values.",
+        description: "最优化问题使用导数寻找函数的最大值或最小值。",
         questions: [
-          "How can derivatives help find maximum or minimum values?",
-          "What does a critical point mean?"
+          "导数如何帮助寻找最大值或最小值？",
+          "临界点在最优化问题中有什么意义？"
         ]
       },
       {
         id: "integral",
-        label: "Integral",
+        label: "积分",
         level: 3,
         x: 62,
         y: 72,
-        description: "A mathematical tool for accumulation and area under a curve.",
+        description: "积分用于描述累积量，也常被解释为曲线下方的面积。",
         questions: [
-          "What does an integral represent visually?",
-          "How are integrals related to accumulated quantities?"
+          "从图像角度看，积分可以表示什么？",
+          "积分和累积量之间有什么关系？"
         ]
       },
       {
         id: "definite-integral",
-        label: "Definite Integral",
+        label: "定积分",
         level: 4,
         x: 84,
         y: 76,
-        description: "An integral evaluated over a specific interval.",
+        description: "定积分是在指定区间上计算积分结果。",
         questions: [
-          "What do the lower and upper limits of integration mean?",
-          "How is a definite integral different from an indefinite integral?"
+          "定积分上下限分别表示什么？",
+          "定积分和不定积分有什么区别？"
         ]
       }
     ],
@@ -127,114 +127,114 @@ window.KNOWLEDGE_GRAPH_DATA = {
     videos: [
       {
         id: "v1",
-        title: "Understanding Functions and Graphs",
+        title: "理解函数与函数图像",
         concepts: ["function", "graph"],
         difficulty: "beginner",
-        duration: "12 min"
+        duration: "12 分钟"
       },
       {
         id: "v2",
-        title: "Limits Intuitively Explained",
+        title: "直观理解极限",
         concepts: ["function", "limit"],
         difficulty: "beginner",
-        duration: "16 min"
+        duration: "16 分钟"
       },
       {
         id: "v3",
-        title: "Continuity and Discontinuity",
+        title: "连续与不连续",
         concepts: ["limit", "continuity"],
         difficulty: "beginner",
-        duration: "14 min"
+        duration: "14 分钟"
       },
       {
         id: "v4",
-        title: "Derivative as Instantaneous Rate of Change",
+        title: "导数：瞬时变化率",
         concepts: ["limit", "derivative"],
         difficulty: "intermediate",
-        duration: "18 min"
+        duration: "18 分钟"
       },
       {
         id: "v5",
-        title: "Chain Rule for Composite Functions",
+        title: "复合函数的链式法则",
         concepts: ["derivative", "chain-rule"],
         difficulty: "intermediate",
-        duration: "20 min"
+        duration: "20 分钟"
       },
       {
         id: "v6",
-        title: "Integrals and Area Under Curves",
+        title: "积分与曲线下面积",
         concepts: ["function", "integral", "definite-integral"],
         difficulty: "intermediate",
-        duration: "19 min"
+        duration: "19 分钟"
       }
     ]
   },
   python: {
-    title: "Python Programming Basics",
-    description: "A compact programming concept graph for later expansion.",
+    title: "Python 编程基础",
+    description: "用于后续扩展的编程概念知识图谱。",
     concepts: [
       {
         id: "variables",
-        label: "Variables",
+        label: "变量",
         level: 1,
         x: 16,
         y: 42,
-        description: "Named references to values used in a program.",
-        questions: ["What is a variable used for?", "How do you assign a value to a variable in Python?"]
+        description: "变量是程序中用于保存和引用数据的名称。",
+        questions: ["变量通常用来做什么？", "在 Python 中如何给变量赋值？"]
       },
       {
         id: "types",
-        label: "Data Types",
+        label: "数据类型",
         level: 1,
         x: 18,
         y: 66,
-        description: "Categories of values such as strings, numbers, and booleans.",
-        questions: ["Name two common Python data types.", "Why does the type of a value matter?"]
+        description: "数据类型表示数据的类别，例如字符串、数字和布尔值。",
+        questions: ["请举出两种常见的 Python 数据类型。", "为什么数据类型会影响程序运行？"]
       },
       {
         id: "conditionals",
-        label: "Conditionals",
+        label: "条件语句",
         level: 2,
         x: 42,
         y: 34,
-        description: "Control flow statements that run code depending on a condition.",
-        questions: ["What does an if statement do?", "What is the role of a boolean expression?"]
+        description: "条件语句根据判断结果决定执行哪一段代码。",
+        questions: ["if 语句的作用是什么？", "布尔表达式在条件语句中起什么作用？"]
       },
       {
         id: "loops",
-        label: "Loops",
+        label: "循环",
         level: 2,
         x: 42,
         y: 68,
-        description: "Structures for repeating code.",
-        questions: ["When would you use a loop?", "What is the difference between for and while loops?"]
+        description: "循环用于重复执行一段代码。",
+        questions: ["什么情况下适合使用循环？", "for 循环和 while 循环有什么区别？"]
       },
       {
         id: "functions",
-        label: "Functions",
+        label: "函数",
         level: 3,
         x: 66,
         y: 50,
-        description: "Reusable blocks of code that can take inputs and return outputs.",
-        questions: ["Why are functions useful?", "What is a function parameter?"]
+        description: "函数是可重复使用的代码块，可以接收输入并返回结果。",
+        questions: ["为什么编程中需要函数？", "函数参数是什么意思？"]
       },
       {
         id: "lists",
-        label: "Lists",
+        label: "列表",
         level: 2,
         x: 40,
         y: 84,
-        description: "Ordered collections that can store multiple values.",
-        questions: ["How do you access an item in a list?", "Why are lists useful with loops?"]
+        description: "列表是一种有序集合，可以保存多个值。",
+        questions: ["如何访问列表中的某个元素？", "为什么列表经常和循环一起使用？"]
       },
       {
         id: "modules",
-        label: "Modules",
+        label: "模块",
         level: 4,
         x: 86,
         y: 48,
-        description: "Files or libraries that provide reusable code.",
-        questions: ["What does import do?", "Why do programmers use modules?"]
+        description: "模块是可复用的代码文件或库。",
+        questions: ["import 的作用是什么？", "为什么程序员会使用模块？"]
       }
     ],
     edges: [
@@ -247,11 +247,11 @@ window.KNOWLEDGE_GRAPH_DATA = {
       { from: "functions", to: "modules", relation: "prerequisite_of" }
     ],
     videos: [
-      { id: "p1", title: "Python Variables and Types", concepts: ["variables", "types"], difficulty: "beginner", duration: "11 min" },
-      { id: "p2", title: "If Statements in Python", concepts: ["conditionals"], difficulty: "beginner", duration: "13 min" },
-      { id: "p3", title: "Loops and Lists", concepts: ["loops", "lists"], difficulty: "beginner", duration: "15 min" },
-      { id: "p4", title: "Writing Python Functions", concepts: ["functions"], difficulty: "intermediate", duration: "17 min" },
-      { id: "p5", title: "Using Python Modules", concepts: ["modules"], difficulty: "intermediate", duration: "10 min" }
+      { id: "p1", title: "Python 变量与数据类型", concepts: ["variables", "types"], difficulty: "beginner", duration: "11 分钟" },
+      { id: "p2", title: "Python 条件语句", concepts: ["conditionals"], difficulty: "beginner", duration: "13 分钟" },
+      { id: "p3", title: "循环与列表", concepts: ["loops", "lists"], difficulty: "beginner", duration: "15 分钟" },
+      { id: "p4", title: "编写 Python 函数", concepts: ["functions"], difficulty: "intermediate", duration: "17 分钟" },
+      { id: "p5", title: "使用 Python 模块", concepts: ["modules"], difficulty: "intermediate", duration: "10 分钟" }
     ]
   }
 };
