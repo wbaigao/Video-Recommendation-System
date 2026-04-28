@@ -1,147 +1,119 @@
-const data = window.KNOWLEDGE_GRAPH_DATA;
-
 const state = {
-  domainKey: "calculus",
-  selectedId: "derivative",
-  learnerState: {}
+  graph: null,
+  selectedId: null
 };
 
 const dom = {
-  domainSelect: document.querySelector("#domainSelect"),
-  goalInput: document.querySelector("#goalInput"),
-  analyzeBtn: document.querySelector("#analyzeBtn"),
-  suggestions: document.querySelector("#suggestions"),
-  knowledgeState: document.querySelector("#knowledgeState"),
-  resetStateBtn: document.querySelector("#resetStateBtn"),
+  topicInput: document.querySelector("#topicInput"),
+  generateBtn: document.querySelector("#generateBtn"),
+  exportBtn: document.querySelector("#exportBtn"),
   graph: document.querySelector("#graph"),
-  domainTitle: document.querySelector("#domainTitle"),
+  graphTitle: document.querySelector("#graphTitle"),
   selectedConcept: document.querySelector("#selectedConcept"),
   selectedDescription: document.querySelector("#selectedDescription"),
-  pathList: document.querySelector("#pathList"),
-  questionList: document.querySelector("#questionList"),
-  videoList: document.querySelector("#videoList")
+  relationList: document.querySelector("#relationList"),
+  jsonPreview: document.querySelector("#jsonPreview")
 };
 
-function getDomain() {
-  return data[state.domainKey];
+function normalizeTopic(value) {
+  return value.trim().replace(/\s+/g, " ");
 }
 
-function getConcept(id) {
-  return getDomain().concepts.find((concept) => concept.id === id);
+function toId(label) {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-|-$/g, "");
 }
 
-function normalizeText(value) {
-  return value.trim().toLowerCase().replace(/\s+/g, "-");
+function createNode(topic, suffix, type, x, y, description) {
+  const label = suffix ? `${topic}${suffix}` : topic;
+  return {
+    id: suffix ? `${toId(topic)}-${toId(suffix)}` : toId(topic),
+    label,
+    type,
+    x,
+    y,
+    description
+  };
 }
 
-function findConceptByText(value) {
-  const query = normalizeText(value);
-  return getDomain().concepts.find((concept) => {
-    return concept.id === query || normalizeText(concept.label) === query || concept.label.toLowerCase().includes(value.trim().toLowerCase());
-  });
+function generateKnowledgeGraph(topicValue) {
+  const topic = normalizeTopic(topicValue) || "导数";
+
+  const nodes = [
+    createNode(topic, "", "target", 50, 48, `${topic} 是当前用户输入的学习目标，系统会围绕它生成可解释的概念关系。`),
+    createNode(topic, "的基础概念", "prerequisite", 16, 28, `学习 ${topic} 之前通常需要先理解的基础概念。`),
+    createNode(topic, "的前置知识", "prerequisite", 18, 68, `支撑理解 ${topic} 的前置知识点，可用于后续判断学习者是否具备学习条件。`),
+    createNode(topic, "的核心定义", "concept", 46, 18, `${topic} 的定义、基本含义和核心解释。`),
+    createNode(topic, "的表示方法", "concept", 74, 22, `${topic} 在公式、图像、文字或代码中的表达方式。`),
+    createNode(topic, "的关键性质", "concept", 78, 48, `${topic} 的重要性质、规则或约束条件。`),
+    createNode(topic, "的解题方法", "concept", 72, 74, `围绕 ${topic} 的典型解题步骤、使用方法或操作流程。`),
+    createNode(topic, "的应用场景", "concept", 46, 82, `${topic} 在实际问题、课程内容或视频案例中的应用。`),
+    createNode(topic, "的常见误区", "concept", 28, 48, `学习 ${topic} 时容易混淆或理解错误的地方。`)
+  ];
+
+  const rootId = toId(topic);
+  const nodeId = (suffix) => `${rootId}-${toId(suffix)}`;
+  const edges = [
+    { from: nodeId("的基础概念"), to: rootId, relation: "prerequisite_of", label: "前置" },
+    { from: nodeId("的前置知识"), to: rootId, relation: "prerequisite_of", label: "前置" },
+    { from: rootId, to: nodeId("的核心定义"), relation: "has_definition", label: "定义" },
+    { from: nodeId("的核心定义"), to: nodeId("的表示方法"), relation: "represented_by", label: "表示" },
+    { from: nodeId("的核心定义"), to: nodeId("的关键性质"), relation: "has_property", label: "性质" },
+    { from: nodeId("的关键性质"), to: nodeId("的解题方法"), relation: "supports_method", label: "方法" },
+    { from: nodeId("的解题方法"), to: nodeId("的应用场景"), relation: "applied_to", label: "应用" },
+    { from: nodeId("的常见误区"), to: rootId, relation: "clarifies", label: "澄清" },
+    { from: nodeId("的前置知识"), to: nodeId("的核心定义"), relation: "supports", label: "支撑" }
+  ];
+
+  return {
+    topic,
+    generatedAt: new Date().toISOString(),
+    generator: "rule-based-dynamic-generator-v1",
+    nodes,
+    edges
+  };
 }
 
-function getPrerequisites(targetId, visited = new Set()) {
-  if (visited.has(targetId)) {
-    return [];
-  }
-  visited.add(targetId);
-
-  const direct = getDomain().edges
-    .filter((edge) => edge.to === targetId)
-    .map((edge) => edge.from);
-
-  const expanded = direct.flatMap((id) => getPrerequisites(id, visited));
-  return [...new Set([...expanded, ...direct])];
+function getNode(id) {
+  return state.graph.nodes.find((node) => node.id === id);
 }
 
-function getRelatedVideos(conceptIds) {
-  const wanted = new Set(conceptIds);
-  return getDomain().videos
-    .map((video) => {
-      const overlap = video.concepts.filter((id) => wanted.has(id));
-      return { ...video, overlap, score: overlap.length };
-    })
-    .filter((video) => video.score > 0)
-    .sort((a, b) => b.score - a.score || a.difficulty.localeCompare(b.difficulty));
-}
-
-function setLearnerState(conceptId, value) {
-  state.learnerState[conceptId] = state.learnerState[conceptId] === value ? undefined : value;
+function generateGraph() {
+  state.graph = generateKnowledgeGraph(dom.topicInput.value);
+  state.selectedId = state.graph.nodes[0].id;
   render();
-}
-
-function analyzeGoal() {
-  const match = findConceptByText(dom.goalInput.value);
-  if (match) {
-    state.selectedId = match.id;
-  }
-  render();
-}
-
-function renderDomainOptions() {
-  dom.domainSelect.innerHTML = Object.entries(data)
-    .map(([key, domain]) => `<option value="${key}">${domain.title}</option>`)
-    .join("");
-  dom.domainSelect.value = state.domainKey;
-}
-
-function renderSuggestions() {
-  const concepts = getDomain().concepts;
-  dom.suggestions.innerHTML = concepts
-    .slice()
-    .sort((a, b) => a.level - b.level || a.label.localeCompare(b.label))
-    .map((concept) => `<button class="chip" type="button" data-suggestion="${concept.id}">${concept.label}</button>`)
-    .join("");
-}
-
-function renderKnowledgeState() {
-  dom.knowledgeState.innerHTML = getDomain().concepts
-    .slice()
-    .sort((a, b) => a.level - b.level || a.label.localeCompare(b.label))
-    .map((concept) => {
-      const current = state.learnerState[concept.id];
-      return `
-        <div class="state-row">
-          <span>${concept.label}</span>
-          <button class="known-btn" type="button" data-state="${concept.id}:known" aria-pressed="${current === "known"}">已掌握</button>
-          <button class="weak-btn" type="button" data-state="${concept.id}:weak" aria-pressed="${current === "weak"}">薄弱</button>
-        </div>
-      `;
-    })
-    .join("");
 }
 
 function renderGraph() {
-  const domain = getDomain();
   const width = dom.graph.clientWidth || 900;
   const height = dom.graph.clientHeight || 620;
-  const conceptsById = Object.fromEntries(domain.concepts.map((concept) => [concept.id, concept]));
+  const nodesById = Object.fromEntries(state.graph.nodes.map((node) => [node.id, node]));
   const scaleX = (value) => (value / 100) * width;
   const scaleY = (value) => (value / 100) * height;
 
-  const edges = domain.edges
+  const edges = state.graph.edges
     .map((edge) => {
-      const from = conceptsById[edge.from];
-      const to = conceptsById[edge.to];
+      const from = nodesById[edge.from];
+      const to = nodesById[edge.to];
       return `
-        <line class="edge ${edge.relation === "supports" ? "supports" : ""}"
-          x1="${scaleX(from.x)}" y1="${scaleY(from.y)}"
-          x2="${scaleX(to.x)}" y2="${scaleY(to.y)}">
-        </line>
+        <g class="edge-group">
+          <line class="edge ${edge.relation}" x1="${scaleX(from.x)}" y1="${scaleY(from.y)}" x2="${scaleX(to.x)}" y2="${scaleY(to.y)}"></line>
+          <text class="edge-label" x="${(scaleX(from.x) + scaleX(to.x)) / 2}" y="${(scaleY(from.y) + scaleY(to.y)) / 2 - 6}">${edge.label}</text>
+        </g>
       `;
     })
     .join("");
 
-  const nodes = domain.concepts
-    .map((concept) => {
-      const status = state.selectedId === concept.id ? "target" : state.learnerState[concept.id] || "";
-      const label = concept.label.length > 14 ? concept.label.replace(" ", "\n") : concept.label;
+  const nodes = state.graph.nodes
+    .map((node) => {
+      const status = node.id === state.selectedId ? "selected" : node.type;
       return `
-        <g class="node ${status}" data-node="${concept.id}" transform="translate(${scaleX(concept.x)}, ${scaleY(concept.y)})">
-          <circle r="34"></circle>
-          ${label
-            .split("\n")
+        <g class="node ${status}" data-node="${node.id}" transform="translate(${scaleX(node.x)}, ${scaleY(node.y)})">
+          <circle r="38"></circle>
+          ${splitLabel(node.label)
             .map((line, index, lines) => `<text y="${(index - (lines.length - 1) / 2) * 15 + 4}">${line}</text>`)
             .join("")}
         </g>
@@ -153,112 +125,69 @@ function renderGraph() {
   dom.graph.innerHTML = `${edges}${nodes}`;
 }
 
-function renderInspector() {
-  const concept = getConcept(state.selectedId);
-  if (!concept) {
-    return;
+function splitLabel(label) {
+  if (label.length <= 7) {
+    return [label];
   }
-
-  const prerequisiteIds = getPrerequisites(concept.id);
-  const recommendationConceptIds = [...new Set([...prerequisiteIds, concept.id])];
-  const questions = recommendationConceptIds
-    .map((id) => getConcept(id))
-    .filter(Boolean)
-    .flatMap((item) => item.questions.slice(0, 1).map((question) => ({ concept: item.label, question })));
-  const videos = getRelatedVideos(recommendationConceptIds);
-
-  dom.selectedConcept.textContent = concept.label;
-  dom.selectedDescription.textContent = concept.description;
-
-  dom.pathList.innerHTML = prerequisiteIds.length
-    ? prerequisiteIds
-        .map((id) => {
-          const item = getConcept(id);
-          const statusMap = { known: "已掌握", weak: "薄弱" };
-          const status = state.learnerState[id] ? ` · ${statusMap[state.learnerState[id]]}` : "";
-          return `<li>${item.label}<span class="empty">${status}</span></li>`;
-        })
-        .join("") + `<li><strong>${concept.label}</strong><span class="empty"> · 目标</span></li>`
-    : `<li><strong>${concept.label}</strong><span class="empty"> · 暂无前置知识</span></li>`;
-
-  dom.questionList.innerHTML = questions.length
-    ? questions
-        .map((item) => `
-          <article class="question-card">
-            <p><strong>${item.concept}:</strong> ${item.question}</p>
-          </article>
-        `)
-        .join("")
-    : `<p class="empty">当前概念还没有配置诊断问题。</p>`;
-
-  dom.videoList.innerHTML = videos.length
-    ? videos
-        .map((video) => `
-          <article class="video-card">
-            <p><strong>${video.title}</strong></p>
-            <div class="video-meta">
-              <span>${translateDifficulty(video.difficulty)}</span>
-              <span>${video.duration}</span>
-              <span>匹配 ${video.overlap.length} 个知识点</span>
-            </div>
-          </article>
-        `)
-        .join("")
-    : `<p class="empty">当前概念还没有关联视频。</p>`;
+  const midpoint = Math.ceil(label.length / 2);
+  return [label.slice(0, midpoint), label.slice(midpoint)];
 }
 
-function translateDifficulty(value) {
-  const labels = {
-    beginner: "入门",
-    intermediate: "进阶",
-    advanced: "高级"
-  };
-  return labels[value] || value;
+function renderInspector() {
+  const node = getNode(state.selectedId);
+  dom.selectedConcept.textContent = node.label;
+  dom.selectedDescription.textContent = node.description;
+
+  const relatedEdges = state.graph.edges.filter((edge) => edge.from === node.id || edge.to === node.id);
+  dom.relationList.innerHTML = relatedEdges.length
+    ? relatedEdges
+        .map((edge) => {
+          const from = getNode(edge.from).label;
+          const to = getNode(edge.to).label;
+          return `<li><strong>${from}</strong> → <strong>${to}</strong><span class="empty"> · ${edge.label}</span></li>`;
+        })
+        .join("")
+    : `<li class="empty">当前节点暂无关系。</li>`;
+
+  dom.jsonPreview.textContent = JSON.stringify(state.graph, null, 2);
 }
 
 function render() {
-  const domain = getDomain();
-  dom.domainTitle.textContent = domain.title;
-  if (!getConcept(state.selectedId)) {
-    state.selectedId = domain.concepts[0].id;
-  }
-  dom.goalInput.value = getConcept(state.selectedId).label;
-  renderSuggestions();
-  renderKnowledgeState();
+  dom.graphTitle.textContent = `${state.graph.topic} 知识图谱`;
   renderGraph();
   renderInspector();
 }
 
-dom.domainSelect.addEventListener("change", (event) => {
-  state.domainKey = event.target.value;
-  state.selectedId = getDomain().concepts[0].id;
-  state.learnerState = {};
-  render();
-});
+async function copyGraphJson() {
+  const json = JSON.stringify(state.graph, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    dom.exportBtn.textContent = "已复制";
+    window.setTimeout(() => {
+      dom.exportBtn.textContent = "复制 JSON";
+    }, 1200);
+  } catch {
+    dom.exportBtn.textContent = "复制失败";
+    window.setTimeout(() => {
+      dom.exportBtn.textContent = "复制 JSON";
+    }, 1200);
+  }
+}
 
-dom.analyzeBtn.addEventListener("click", analyzeGoal);
-dom.goalInput.addEventListener("keydown", (event) => {
+dom.generateBtn.addEventListener("click", generateGraph);
+dom.topicInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
-    analyzeGoal();
+    generateGraph();
   }
 });
 
-dom.suggestions.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-suggestion]");
+document.querySelector(".suggestions").addEventListener("click", (event) => {
+  const target = event.target.closest("[data-example]");
   if (!target) {
     return;
   }
-  state.selectedId = target.dataset.suggestion;
-  render();
-});
-
-dom.knowledgeState.addEventListener("click", (event) => {
-  const target = event.target.closest("[data-state]");
-  if (!target) {
-    return;
-  }
-  const [conceptId, value] = target.dataset.state.split(":");
-  setLearnerState(conceptId, value);
+  dom.topicInput.value = target.dataset.example;
+  generateGraph();
 });
 
 dom.graph.addEventListener("click", (event) => {
@@ -270,12 +199,7 @@ dom.graph.addEventListener("click", (event) => {
   render();
 });
 
-dom.resetStateBtn.addEventListener("click", () => {
-  state.learnerState = {};
-  render();
-});
-
+dom.exportBtn.addEventListener("click", copyGraphJson);
 window.addEventListener("resize", renderGraph);
 
-renderDomainOptions();
-render();
+generateGraph();

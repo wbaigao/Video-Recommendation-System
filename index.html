@@ -3,86 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>教育视频知识图谱</title>
+    <title>教育视频知识图谱生成器</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <aside class="sidebar">
         <section class="brand">
-          <p class="eyebrow">学习知识图谱</p>
+          <p class="eyebrow">动态知识图谱</p>
           <h1>教育视频推荐系统</h1>
         </section>
 
         <section class="panel">
-          <label for="domainSelect">学习领域</label>
-          <select id="domainSelect"></select>
-        </section>
-
-        <section class="panel">
-          <label for="goalInput">学习目标</label>
+          <label for="topicInput">输入学习主题</label>
           <div class="search-row">
-            <input id="goalInput" type="text" placeholder="例如：导数" autocomplete="off" />
-            <button id="analyzeBtn" type="button">分析</button>
+            <input id="topicInput" type="text" value="导数" placeholder="例如：导数、极限、Python 函数" autocomplete="off" />
+            <button id="generateBtn" type="button">生成</button>
           </div>
-          <div id="suggestions" class="suggestions"></div>
+          <div class="suggestions">
+            <button class="chip" type="button" data-example="导数">导数</button>
+            <button class="chip" type="button" data-example="极限">极限</button>
+            <button class="chip" type="button" data-example="Python 函数">Python 函数</button>
+            <button class="chip" type="button" data-example="机器学习">机器学习</button>
+          </div>
         </section>
 
         <section class="panel">
-          <div class="panel-heading">
-            <h2>学习者掌握状态</h2>
-            <button id="resetStateBtn" class="ghost-button" type="button">重置</button>
+          <h2>生成方法</h2>
+          <p class="method-text">
+            当前版本根据输入词实时生成概念节点和关系，不读取预置领域图谱。后续可把这里的规则生成器替换为 LLM 或课程知识库接口。
+          </p>
+        </section>
+
+        <section class="panel">
+          <h2>节点类型</h2>
+          <div class="legend vertical">
+            <span><i class="dot target"></i>学习目标</span>
+            <span><i class="dot prerequisite"></i>前置知识</span>
+            <span><i class="dot concept"></i>相关概念</span>
+            <span><i class="line-sample"></i>概念关系</span>
           </div>
-          <div id="knowledgeState" class="state-list"></div>
         </section>
       </aside>
 
       <section class="workspace">
         <header class="toolbar">
           <div>
-            <p class="eyebrow">概念图谱</p>
-            <h2 id="domainTitle">微积分基础</h2>
+            <p class="eyebrow">生成结果</p>
+            <h2 id="graphTitle">导数知识图谱</h2>
           </div>
-          <div class="legend">
-            <span><i class="dot known"></i>已掌握</span>
-            <span><i class="dot weak"></i>薄弱</span>
-            <span><i class="dot target"></i>目标</span>
-            <span><i class="line-sample"></i>前置关系</span>
-          </div>
+          <button id="exportBtn" class="ghost-button" type="button">复制 JSON</button>
         </header>
 
         <section class="graph-layout">
           <div class="graph-card">
-            <svg id="graph" role="img" aria-label="知识图谱可视化"></svg>
+            <svg id="graph" role="img" aria-label="动态生成的知识图谱"></svg>
           </div>
 
           <aside class="inspector">
             <section class="result-block">
-              <p class="eyebrow">当前概念</p>
-              <h3 id="selectedConcept">请选择一个概念</h3>
-              <p id="selectedDescription">点击节点，或输入学习目标后分析。</p>
+              <p class="eyebrow">当前节点</p>
+              <h3 id="selectedConcept">导数</h3>
+              <p id="selectedDescription">点击图中的节点查看说明。</p>
             </section>
 
             <section class="result-block">
-              <h3>前置知识链</h3>
-              <ol id="pathList" class="path-list"></ol>
+              <h3>关系说明</h3>
+              <ol id="relationList" class="path-list"></ol>
             </section>
 
             <section class="result-block">
-              <h3>诊断问题</h3>
-              <div id="questionList" class="question-list"></div>
-            </section>
-
-            <section class="result-block">
-              <h3>相关视频覆盖</h3>
-              <div id="videoList" class="video-list"></div>
+              <h3>图谱数据</h3>
+              <pre id="jsonPreview" class="json-preview"></pre>
             </section>
           </aside>
         </section>
       </section>
     </main>
 
-    <script src="./data/knowledge-graph.js"></script>
     <script src="./src/app.js"></script>
   </body>
 </html>
