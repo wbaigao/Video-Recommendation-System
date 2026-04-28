@@ -5,14 +5,59 @@ const state = {
 
 const dom = {
   topicInput: document.querySelector("#topicInput"),
+  apiKeyInput: document.querySelector("#apiKeyInput"),
   generateBtn: document.querySelector("#generateBtn"),
   exportBtn: document.querySelector("#exportBtn"),
   graph: document.querySelector("#graph"),
   graphTitle: document.querySelector("#graphTitle"),
+  statusText: document.querySelector("#statusText"),
   selectedConcept: document.querySelector("#selectedConcept"),
   selectedDescription: document.querySelector("#selectedDescription"),
   relationList: document.querySelector("#relationList"),
   jsonPreview: document.querySelector("#jsonPreview")
+};
+
+const graphSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["topic", "summary", "nodes", "edges"],
+  properties: {
+    topic: { type: "string" },
+    summary: { type: "string" },
+    nodes: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["id", "label", "type", "description", "x", "y"],
+        properties: {
+          id: { type: "string" },
+          label: { type: "string" },
+          type: { type: "string", enum: ["target", "prerequisite", "concept"] },
+          description: { type: "string" },
+          x: { type: "number" },
+          y: { type: "number" }
+        }
+      }
+    },
+    edges: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["from", "to", "relation", "label"],
+        properties: {
+          from: { type: "string" },
+          to: { type: "string" },
+          relation: {
+            type: "string",
+            enum: ["prerequisite_of", "part_of", "related_to", "includes", "applied_to", "contrasts_with", "supports"]
+          },
+          label: { type: "string" }
+        }
+      }
+    }
+  }
 };
 
 function normalizeTopic(value) {
@@ -77,14 +122,161 @@ function generateKnowledgeGraph(topicValue) {
   };
 }
 
+async function generateKnowledgeGraphWithLLM(topicValue, apiKey) {
+  const topic = normalizeTopic(topicValue) || "导数";
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      input: [
+        {
+          role: "system",
+          content:
+            "你是教育技术研究系统中的知识图谱生成模块。请根据用户输入的学习主题，生成一个局部、可学习、可用于教育视频推荐的知识图谱。必须使用中文。不要生成诊断问题。"
+        },
+        {
+          role: "user",
+          content: `学习主题：${topic}\n\n要求：\n1. 生成 7 到 12 个节点。\n2. 必须包含一个 type 为 target 的目标节点，label 使用用户输入主题。\n3. 至少包含 2 个 prerequisite 前置知识节点。\n4. 其他节点可以是定义、性质、方法、应用、常见误区、相关概念等。\n5. edges 必须只引用 nodes 中存在的 id。\n6. id 使用简短英文或拼音，不能重复。\n7. x 和 y 是可视化坐标，范围 5 到 95。`
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "knowledge_graph",
+          strict: true,
+          schema: graphSchema
+        }
+      }
+    })
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    const message = body.error?.message || "LLM 请求失败。";
+    throw new Error(message);
+  }
+
+  const text = extractResponseText(body);
+  if (!text) {
+    throw new Error("LLM 没有返回可解析的 JSON。");
+  }
+
+  return normalizeGraph(JSON.parse(text), topic, "openai-structured-output");
+}
+
+function extractResponseText(body) {
+  if (body.output_text) {
+    return body.output_text;
+  }
+
+  const chunks = [];
+  for (const item of body.output || []) {
+    for (const content of item.content || []) {
+      if (content.type === "output_text" && content.text) {
+        chunks.push(content.text);
+      }
+    }
+  }
+  return chunks.join("");
+}
+
+function normalizeGraph(graph, topic, generator) {
+  const seen = new Set();
+  const nodes = graph.nodes
+    .map((node, index) => ({
+      id: toId(node.id || node.label || `${topic}-${index}`),
+      label: node.label || `${topic}${index + 1}`,
+      type: node.type === "target" || node.type === "prerequisite" ? node.type : "concept",
+      description: node.description || `${node.label} 是与 ${topic} 相关的知识点。`,
+      x: clampNumber(node.x, 8, 92),
+      y: clampNumber(node.y, 8, 92)
+    }))
+    .filter((node) => {
+      if (!node.id || seen.has(node.id)) {
+        return false;
+      }
+      seen.add(node.id);
+      return true;
+    });
+
+  if (!nodes.some((node) => node.type === "target")) {
+    nodes.unshift({
+      id: toId(topic),
+      label: topic,
+      type: "target",
+      description: `${topic} 是当前学习目标。`,
+      x: 50,
+      y: 48
+    });
+  }
+
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const edges = graph.edges
+    .map((edge) => ({
+      from: toId(edge.from || ""),
+      to: toId(edge.to || ""),
+      relation: edge.relation || "related_to",
+      label: edge.label || relationLabel(edge.relation)
+    }))
+    .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to) && edge.from !== edge.to);
+
+  return {
+    topic: graph.topic || topic,
+    summary: graph.summary || `围绕 ${topic} 自动生成的局部知识图谱。`,
+    generatedAt: new Date().toISOString(),
+    generator,
+    nodes,
+    edges
+  };
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return (min + max) / 2;
+  }
+  return Math.max(min, Math.min(max, number));
+}
+
+function relationLabel(relation) {
+  const labels = {
+    prerequisite_of: "前置",
+    part_of: "组成",
+    related_to: "相关",
+    includes: "包含",
+    applied_to: "应用",
+    contrasts_with: "对比",
+    supports: "支撑"
+  };
+  return labels[relation] || "相关";
+}
+
 function getNode(id) {
   return state.graph.nodes.find((node) => node.id === id);
 }
 
-function generateGraph() {
-  state.graph = generateKnowledgeGraph(dom.topicInput.value);
-  state.selectedId = state.graph.nodes[0].id;
-  render();
+async function generateGraph() {
+  const topic = normalizeTopic(dom.topicInput.value) || "导数";
+  const apiKey = dom.apiKeyInput.value.trim();
+  dom.generateBtn.disabled = true;
+  dom.statusText.textContent = apiKey ? "正在调用 LLM 生成知识图谱..." : "未输入 API Key，使用本地规则生成器。";
+
+  try {
+    state.graph = apiKey ? await generateKnowledgeGraphWithLLM(topic, apiKey) : generateKnowledgeGraph(topic);
+    dom.statusText.textContent = apiKey ? "LLM 知识图谱生成完成。" : "本地规则知识图谱生成完成。";
+  } catch (error) {
+    console.error(error);
+    state.graph = generateKnowledgeGraph(topic);
+    dom.statusText.textContent = `LLM 调用失败，已使用本地规则图谱：${error.message}`;
+  } finally {
+    state.selectedId = (state.graph.nodes.find((node) => node.type === "target") || state.graph.nodes[0]).id;
+    dom.generateBtn.disabled = false;
+    render();
+  }
 }
 
 function renderGraph() {
