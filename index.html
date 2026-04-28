@@ -3,43 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>教育视频知识图谱生成器</title>
+    <title>数学知识图谱</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <aside class="sidebar">
         <section class="brand">
-          <p class="eyebrow">动态知识图谱</p>
+          <p class="eyebrow">数学知识图谱</p>
           <h1>教育视频推荐系统</h1>
         </section>
 
         <section class="panel">
-          <label for="topicInput">输入学习主题</label>
+          <label for="topicInput">查询数学概念</label>
           <div class="search-row">
-            <input id="topicInput" type="text" value="导数" placeholder="例如：导数、极限、Python 函数" autocomplete="off" />
-            <button id="generateBtn" type="button">生成</button>
+            <input id="topicInput" type="text" value="导数" placeholder="例如：导数、极限、矩阵、概率论" autocomplete="off" />
+            <button id="generateBtn" type="button">查询</button>
           </div>
           <div class="suggestions">
             <button class="chip" type="button" data-example="导数">导数</button>
             <button class="chip" type="button" data-example="极限">极限</button>
-            <button class="chip" type="button" data-example="Python 函数">Python 函数</button>
-            <button class="chip" type="button" data-example="机器学习">机器学习</button>
+            <button class="chip" type="button" data-example="积分">积分</button>
+            <button class="chip" type="button" data-example="矩阵">矩阵</button>
+            <button class="chip" type="button" data-example="概率论">概率论</button>
           </div>
         </section>
 
         <section class="panel">
-          <label for="apiEndpointInput">知识图谱生成接口</label>
-          <input id="apiEndpointInput" type="text" value="/api/knowledge-graph" autocomplete="off" />
+          <h2>数据来源</h2>
           <p class="method-text">
-            API Key 由后端环境变量读取，不写入网页或 GitHub 仓库。GitHub Pages 静态页面需要另行部署后端。
+            页面直接读取项目中的数学知识库 JSON。知识库由 Neo4j Cypher 数据同步生成，覆盖小学到大学核心数学概念。
           </p>
         </section>
 
         <section class="panel">
-          <h2>生成方法</h2>
+          <h2>查询方式</h2>
           <p class="method-text">
-            当前版本要求 LLM 输出具体前置知识链，而不是“基础概念、核心定义”这类固定模板。
+            输入概念后，系统返回该概念的多层前置知识、后续可学习内容和相关概念。
           </p>
         </section>
 
@@ -57,9 +57,9 @@
       <section class="workspace">
         <header class="toolbar">
           <div>
-            <p class="eyebrow">生成结果</p>
-            <h2 id="graphTitle">导数知识图谱</h2>
-            <p id="statusText" class="status-text">等待输入学习主题。</p>
+            <p class="eyebrow">查询结果</p>
+            <h2 id="graphTitle">导数数学知识图谱</h2>
+            <p id="statusText" class="status-text">正在加载数学知识库。</p>
           </div>
           <button id="exportBtn" class="ghost-button" type="button">复制 JSON</button>
         </header>
@@ -90,6 +90,7 @@
       </section>
     </main>
 
+    <script src="./data/math-knowledge-graph.js"></script>
     <script src="./src/app.js"></script>
   </body>
 </html>

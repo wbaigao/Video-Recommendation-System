@@ -1,11 +1,11 @@
 const state = {
+  database: null,
   graph: null,
   selectedId: null
 };
 
 const dom = {
   topicInput: document.querySelector("#topicInput"),
-  apiEndpointInput: document.querySelector("#apiEndpointInput"),
   generateBtn: document.querySelector("#generateBtn"),
   exportBtn: document.querySelector("#exportBtn"),
   graph: document.querySelector("#graph"),
@@ -17,158 +17,156 @@ const dom = {
   jsonPreview: document.querySelector("#jsonPreview")
 };
 
-function normalizeTopic(value) {
-  return value.trim().replace(/\s+/g, " ");
-}
+const stageLabels = {
+  all: "全阶段",
+  primary: "小学",
+  middle: "初中",
+  high: "高中",
+  university: "大学"
+};
 
-function toId(value) {
-  const cleaned = String(value || "")
+const relationLabels = {
+  PREREQUISITE_OF: "前置",
+  PART_OF: "属于",
+  RELATED_TO: "相关"
+};
+
+function normalizeText(value) {
+  return String(value || "")
     .trim()
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-|-$/g, "");
-  return cleaned || `node-${Math.random().toString(36).slice(2, 8)}`;
+    .replace(/\s+/g, "");
 }
 
-function createPlaceholderGraph(topicValue) {
-  const topic = normalizeTopic(topicValue) || "导数";
-  const targetId = toId(topic);
-  return {
-    topic,
-    summary: "没有填写 API Key 时，系统不会伪造具体前置知识。请填写 API Key 后由 LLM 生成真实局部知识图谱。",
-    generatedAt: new Date().toISOString(),
-    generator: "placeholder-requires-llm",
-    nodes: [
-      {
-        id: targetId,
-        label: topic,
-        type: "target",
-        depth: 0,
-        x: 50,
-        y: 48,
-        description: `${topic} 是当前学习目标。要获得真实前置知识链，请填写 OpenAI API Key 后重新生成。`
-      },
-      {
-        id: "llm-required",
-        label: "需要 LLM 分析",
-        type: "prerequisite",
-        depth: -1,
-        x: 24,
-        y: 42,
-        description: "具体前置知识不能用固定模板可靠生成，需要 LLM 根据主题语义判断。"
-      },
-      {
-        id: "validated-graph",
-        label: "结构化校验",
-        type: "core",
-        depth: 1,
-        x: 76,
-        y: 54,
-        description: "LLM 返回 nodes 和 edges 后，系统会检查节点去重和关系合法性。"
+async function loadDatabase() {
+  if (window.MATH_KNOWLEDGE_GRAPH) {
+    state.database = window.MATH_KNOWLEDGE_GRAPH;
+    return;
+  }
+
+  const response = await fetch("./data/math-knowledge-graph.json");
+  if (!response.ok) {
+    throw new Error("数学知识库加载失败。");
+  }
+  state.database = await response.json();
+}
+
+function findConcept(query) {
+  const normalized = normalizeText(query);
+  if (!normalized) {
+    return null;
+  }
+
+  const exact = state.database.nodes.find((node) => {
+    return normalizeText(node.id) === normalized || normalizeText(node.name) === normalized || normalizeText(node.label) === normalized;
+  });
+  if (exact) {
+    return exact;
+  }
+
+  return state.database.nodes.find((node) => {
+    return normalizeText(node.name).includes(normalized) || normalized.includes(normalizeText(node.name));
+  });
+}
+
+function getNode(id) {
+  return state.graph.nodes.find((node) => node.id === id);
+}
+
+function getDatabaseNode(id) {
+  return state.database.nodes.find((node) => node.id === id);
+}
+
+function getIncomingPrerequisites(targetId, maxDepth = 5) {
+  const visited = new Set();
+  const result = [];
+
+  function visit(id, depth) {
+    if (depth > maxDepth) {
+      return;
+    }
+
+    const incoming = state.database.edges.filter((edge) => edge.type === "PREREQUISITE_OF" && edge.to === id);
+    for (const edge of incoming) {
+      if (visited.has(edge.from)) {
+        continue;
       }
-    ],
-    edges: [
-      { from: "llm-required", to: targetId, relation: "prerequisite_of", label: "需要分析" },
-      { from: targetId, to: "validated-graph", relation: "extends_to", label: "生成后校验" }
-    ]
-  };
+      visited.add(edge.from);
+      visit(edge.from, depth + 1);
+      result.push(edge.from);
+    }
+  }
+
+  visit(targetId, 1);
+  return [...new Set(result)];
 }
 
-async function generateKnowledgeGraphWithLLM(topicValue, endpoint) {
-  const topic = normalizeTopic(topicValue) || "导数";
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ topic })
+function getOutgoingNext(targetId) {
+  return state.database.edges
+    .filter((edge) => edge.type === "PREREQUISITE_OF" && edge.from === targetId)
+    .map((edge) => edge.to);
+}
+
+function getRelatedNodes(targetId) {
+  return state.database.edges
+    .filter((edge) => edge.type !== "PREREQUISITE_OF" && (edge.from === targetId || edge.to === targetId))
+    .map((edge) => (edge.from === targetId ? edge.to : edge.from));
+}
+
+function buildSubgraph(target) {
+  const prerequisiteIds = getIncomingPrerequisites(target.id);
+  const nextIds = getOutgoingNext(target.id);
+  const relatedIds = getRelatedNodes(target.id);
+  const selectedIds = [...new Set([...prerequisiteIds, target.id, ...nextIds, ...relatedIds])];
+  const nodes = selectedIds.map((id) => {
+    const source = getDatabaseNode(id);
+    return {
+      id: source.id,
+      label: source.name,
+      name: source.name,
+      stage: source.stage,
+      domain: source.domain,
+      description: source.description,
+      type: classifyNode(source.id, target.id, prerequisiteIds, nextIds),
+      depth: source.id === target.id ? 0 : prerequisiteIds.includes(source.id) ? -1 : 1,
+      x: 50,
+      y: 50
+    };
   });
 
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body.error?.message || "LLM 请求失败。");
-  }
-
-  return normalizeGraph(body, topic, body.generator || "backend-openai");
-}
-
-function normalizeGraph(graph, topic, generator) {
-  const rawNodes = Array.isArray(graph.nodes) ? graph.nodes : [];
-  const rawEdges = Array.isArray(graph.edges) ? graph.edges : [];
-  const seen = new Set();
-
-  const nodes = rawNodes
-    .map((node, index) => ({
-      id: toId(node.id || node.label || `${topic}-${index}`),
-      label: String(node.label || `${topic}${index + 1}`).trim(),
-      type: normalizeNodeType(node.type),
-      depth: Number.isInteger(node.depth) ? node.depth : inferDepth(node.type),
-      description: String(node.description || `${node.label || topic} 是与 ${topic} 相关的知识点。`).trim(),
-      x: clampNumber(node.x, 8, 92),
-      y: clampNumber(node.y, 8, 92)
-    }))
-    .filter((node) => {
-      if (!node.id || seen.has(node.id)) {
-        return false;
-      }
-      seen.add(node.id);
-      return true;
-    });
-
-  if (!nodes.some((node) => node.type === "target")) {
-    nodes.push({
-      id: toId(topic),
-      label: topic,
-      type: "target",
-      depth: 0,
-      description: `${topic} 是当前学习目标。`,
-      x: 50,
-      y: 48
-    });
-  }
-
   const nodeIds = new Set(nodes.map((node) => node.id));
-  const edges = rawEdges
+  const edges = state.database.edges
+    .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
     .map((edge) => ({
-      from: toId(edge.from || ""),
-      to: toId(edge.to || ""),
-      relation: normalizeRelation(edge.relation),
-      label: String(edge.label || relationLabel(edge.relation)).trim()
-    }))
-    .filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to) && edge.from !== edge.to);
+      from: edge.from,
+      to: edge.to,
+      relation: edge.relation,
+      type: edge.type,
+      label: relationLabels[edge.type] || "相关"
+    }));
 
   return {
-    topic: graph.topic || topic,
-    summary: graph.summary || `围绕 ${topic} 生成的局部前置知识图谱。`,
-    generatedAt: new Date().toISOString(),
-    generator,
+    topic: target.name,
+    summary: `从数学知识库中查询“${target.name}”的前置知识、后续知识和相关概念。`,
+    generator: "static-math-knowledge-base-v1",
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
     nodes: layoutGraph(nodes),
     edges
   };
 }
 
-function normalizeNodeType(type) {
-  if (["target", "prerequisite", "core", "related", "application"].includes(type)) {
-    return type;
+function classifyNode(id, targetId, prerequisiteIds, nextIds) {
+  if (id === targetId) {
+    return "target";
+  }
+  if (prerequisiteIds.includes(id)) {
+    return "prerequisite";
+  }
+  if (nextIds.includes(id)) {
+    return "application";
   }
   return "related";
-}
-
-function normalizeRelation(relation) {
-  if (["prerequisite_of", "depends_on", "part_of", "related_to", "applied_to", "extends_to"].includes(relation)) {
-    return relation;
-  }
-  return "related_to";
-}
-
-function inferDepth(type) {
-  if (type === "prerequisite") {
-    return -1;
-  }
-  if (type === "target") {
-    return 0;
-  }
-  return 1;
 }
 
 function layoutGraph(nodes) {
@@ -178,9 +176,9 @@ function layoutGraph(nodes) {
     other: nodes.filter((node) => !["prerequisite", "target"].includes(node.type))
   };
 
-  placeGroup(groups.prerequisite, 18, 20, 80);
-  placeGroup(groups.target, 50, 40, 60);
-  placeGroup(groups.other, 78, 20, 80);
+  placeGroup(groups.prerequisite, 18, 12, 88);
+  placeGroup(groups.target, 50, 44, 56);
+  placeGroup(groups.other, 78, 12, 88);
   return nodes;
 }
 
@@ -195,48 +193,39 @@ function placeGroup(nodes, x, yStart, yEnd) {
   });
 }
 
-function clampNumber(value, min, max) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) {
-    return (min + max) / 2;
-  }
-  return Math.max(min, Math.min(max, number));
-}
-
-function relationLabel(relation) {
-  const labels = {
-    prerequisite_of: "前置",
-    depends_on: "依赖",
-    part_of: "组成",
-    related_to: "相关",
-    applied_to: "应用",
-    extends_to: "延伸"
+function createNotFoundGraph(topic) {
+  return {
+    topic,
+    summary: "当前数学知识库暂未收录该概念。",
+    generator: "static-math-knowledge-base-v1",
+    nodeCount: 1,
+    edgeCount: 0,
+    nodes: [
+      {
+        id: "not-found",
+        label: "未收录",
+        name: "未收录",
+        type: "target",
+        stage: "all",
+        domain: "unknown",
+        description: `当前数学知识库中没有找到“${topic}”。可以后续扩充该概念及其前置关系。`,
+        x: 50,
+        y: 50
+      }
+    ],
+    edges: []
   };
-  return labels[relation] || "相关";
 }
 
-function getNode(id) {
-  return state.graph.nodes.find((node) => node.id === id);
-}
-
-async function generateGraph() {
-  const topic = normalizeTopic(dom.topicInput.value) || "导数";
-  const endpoint = dom.apiEndpointInput.value.trim();
-  dom.generateBtn.disabled = true;
-  dom.statusText.textContent = endpoint ? "正在请求后端，让 LLM 分析具体前置知识..." : "请填写知识图谱生成接口。";
-
-  try {
-    state.graph = endpoint ? await generateKnowledgeGraphWithLLM(topic, endpoint) : createPlaceholderGraph(topic);
-    dom.statusText.textContent = endpoint ? "LLM 已生成具体前置知识图谱。" : "当前是占位图：填写接口后可生成真实图谱。";
-  } catch (error) {
-    console.error(error);
-    state.graph = createPlaceholderGraph(topic);
-    dom.statusText.textContent = `LLM 调用失败：${error.message}`;
-  } finally {
-    state.selectedId = (state.graph.nodes.find((node) => node.type === "target") || state.graph.nodes[0]).id;
-    dom.generateBtn.disabled = false;
-    render();
-  }
+function generateGraph() {
+  const topic = dom.topicInput.value.trim() || "导数";
+  const target = findConcept(topic);
+  state.graph = target ? buildSubgraph(target) : createNotFoundGraph(topic);
+  state.selectedId = state.graph.nodes.find((node) => node.type === "target")?.id || state.graph.nodes[0].id;
+  dom.statusText.textContent = target
+    ? `已从数学知识库查询到 ${state.graph.nodes.length} 个相关节点、${state.graph.edges.length} 条关系。`
+    : "当前知识库未收录该概念。";
+  render();
 }
 
 function renderGraph() {
@@ -253,7 +242,7 @@ function renderGraph() {
       return `
         <g class="edge-group">
           <line class="edge ${edge.relation}" x1="${scaleX(from.x)}" y1="${scaleY(from.y)}" x2="${scaleX(to.x)}" y2="${scaleY(to.y)}"></line>
-          <text class="edge-label" x="${(scaleX(from.x) + scaleX(to.x)) / 2}" y="${(scaleY(from.y) + scaleY(to.y)) / 2 - 6}">${edge.label}</text>
+          <text class="edge-label" x="${(scaleX(from.x) + scaleX(to.x)) / 2}" y="${(scaleY(from.y) + scaleY(to.y)) / 2 - 6}">${escapeHtml(edge.label)}</text>
         </g>
       `;
     })
@@ -288,7 +277,7 @@ function splitLabel(label) {
 function renderInspector() {
   const node = getNode(state.selectedId);
   dom.selectedConcept.textContent = node.label;
-  dom.selectedDescription.textContent = node.description;
+  dom.selectedDescription.textContent = `${node.description}（阶段：${stageLabels[node.stage] || node.stage}；领域：${node.domain}）`;
 
   const relatedEdges = state.graph.edges.filter((edge) => edge.from === node.id || edge.to === node.id);
   dom.relationList.innerHTML = relatedEdges.length
@@ -305,7 +294,7 @@ function renderInspector() {
 }
 
 function render() {
-  dom.graphTitle.textContent = `${state.graph.topic} 前置知识图谱`;
+  dom.graphTitle.textContent = `${state.graph.topic} 数学知识图谱`;
   renderGraph();
   renderInspector();
 }
@@ -363,7 +352,15 @@ dom.graph.addEventListener("click", (event) => {
 dom.exportBtn.addEventListener("click", copyGraphJson);
 window.addEventListener("resize", renderGraph);
 
-state.graph = createPlaceholderGraph(dom.topicInput.value);
-state.selectedId = state.graph.nodes[0].id;
-dom.statusText.textContent = "等待点击生成。LLM 调用由后端接口完成。";
-render();
+loadDatabase()
+  .then(() => {
+    dom.statusText.textContent = `数学知识库已加载：${state.database.nodeCount} 个概念，${state.database.edgeCount} 条关系。`;
+    generateGraph();
+  })
+  .catch((error) => {
+    console.error(error);
+    state.graph = createNotFoundGraph("数学知识库");
+    state.selectedId = state.graph.nodes[0].id;
+    dom.statusText.textContent = error.message;
+    render();
+  });
