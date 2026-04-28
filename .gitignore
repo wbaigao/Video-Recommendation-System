@@ -7,3 +7,5 @@ kg-preview.png
 .env
 .env.*
 !.env.example
+tools/neo4j/*.zip
+tools/neo4j/*/
