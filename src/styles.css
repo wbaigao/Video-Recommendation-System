@@ -452,6 +452,37 @@ input {
   white-space: pre-wrap;
 }
 
+.tag-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.tag-card {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f9fbfb;
+  color: var(--ink);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.tag-card strong,
+.tag-card span {
+  display: block;
+}
+
+.tag-card strong {
+  font-size: 14px;
+}
+
+.tag-card span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 @media (max-width: 1050px) {
   .app-shell {
     grid-template-columns: 1fr;

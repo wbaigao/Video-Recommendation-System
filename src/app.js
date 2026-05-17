@@ -13,6 +13,9 @@ const dom = {
   statusText: document.querySelector("#statusText"),
   selectedConcept: document.querySelector("#selectedConcept"),
   selectedDescription: document.querySelector("#selectedDescription"),
+  coreConceptList: document.querySelector("#coreConceptList"),
+  prerequisiteList: document.querySelector("#prerequisiteList"),
+  questionSeedList: document.querySelector("#questionSeedList"),
   relationList: document.querySelector("#relationList"),
   jsonPreview: document.querySelector("#jsonPreview")
 };
@@ -29,6 +32,18 @@ const relationLabels = {
   PREREQUISITE_OF: "前置",
   PART_OF: "属于",
   RELATED_TO: "相关"
+};
+
+const queryAliases = {
+  calculus: "calculus",
+  derivative: "derivative",
+  limit: "limits",
+  limits: "limits",
+  matrix: "matrix",
+  probability: "probability_theory",
+  statistics: "statistical_inference",
+  function: "function_concept",
+  integral: "integral"
 };
 
 function normalizeText(value) {
@@ -55,6 +70,10 @@ function findConcept(query) {
   const normalized = normalizeText(query);
   if (!normalized) {
     return null;
+  }
+
+  if (queryAliases[normalized]) {
+    return getDatabaseNode(queryAliases[normalized]);
   }
 
   const exact = state.database.nodes.find((node) => {
@@ -101,6 +120,12 @@ function getIncomingPrerequisites(targetId, maxDepth = 5) {
   return [...new Set(result)];
 }
 
+function getDirectPrerequisites(targetId) {
+  return state.database.edges
+    .filter((edge) => edge.type === "PREREQUISITE_OF" && edge.to === targetId)
+    .map((edge) => edge.from);
+}
+
 function getOutgoingNext(targetId) {
   return state.database.edges
     .filter((edge) => edge.type === "PREREQUISITE_OF" && edge.from === targetId)
@@ -113,11 +138,36 @@ function getRelatedNodes(targetId) {
     .map((edge) => (edge.from === targetId ? edge.to : edge.from));
 }
 
+function getPartChildren(targetId) {
+  return state.database.edges
+    .filter((edge) => edge.type === "PART_OF" && edge.to === targetId)
+    .map((edge) => edge.from);
+}
+
+function getPartParents(targetId) {
+  return state.database.edges
+    .filter((edge) => edge.type === "PART_OF" && edge.from === targetId)
+    .map((edge) => edge.to);
+}
+
+function getCoreConceptIds(targetId, nextIds, relatedIds) {
+  const children = getPartChildren(targetId);
+  if (children.length) {
+    return children;
+  }
+
+  const parents = getPartParents(targetId);
+  return [...new Set([targetId, ...parents, ...nextIds.slice(0, 4), ...relatedIds.slice(0, 3)])];
+}
+
 function buildSubgraph(target) {
   const prerequisiteIds = getIncomingPrerequisites(target.id);
+  const directPrerequisiteIds = getDirectPrerequisites(target.id);
   const nextIds = getOutgoingNext(target.id);
   const relatedIds = getRelatedNodes(target.id);
-  const selectedIds = [...new Set([...prerequisiteIds, target.id, ...nextIds, ...relatedIds])];
+  const coreConceptIds = getCoreConceptIds(target.id, nextIds, relatedIds);
+  const questionSeedIds = [...new Set([...directPrerequisiteIds, ...prerequisiteIds.slice(-4), target.id])];
+  const selectedIds = [...new Set([...prerequisiteIds, target.id, ...coreConceptIds, ...nextIds, ...relatedIds])];
   const nodes = selectedIds.map((id) => {
     const source = getDatabaseNode(id);
     return {
@@ -147,12 +197,33 @@ function buildSubgraph(target) {
 
   return {
     topic: target.name,
-    summary: `从数学知识库中查询“${target.name}”的前置知识、后续知识和相关概念。`,
+    summary: `从数学知识库中查询“${target.name}”的核心概念、前置知识、后续知识和相关概念。`,
     generator: "static-math-knowledge-base-v1",
     nodeCount: nodes.length,
     edgeCount: edges.length,
+    target: toSummaryNode(target.id),
+    coreConcepts: coreConceptIds.map(toSummaryNode).filter(Boolean),
+    directPrerequisites: directPrerequisiteIds.map(toSummaryNode).filter(Boolean),
+    allPrerequisites: prerequisiteIds.map(toSummaryNode).filter(Boolean),
+    nextConcepts: nextIds.map(toSummaryNode).filter(Boolean),
+    relatedConcepts: relatedIds.map(toSummaryNode).filter(Boolean),
+    questionSeedNodes: questionSeedIds.map(toSummaryNode).filter(Boolean),
     nodes: layoutGraph(nodes),
     edges
+  };
+}
+
+function toSummaryNode(id) {
+  const node = getDatabaseNode(id);
+  if (!node) {
+    return null;
+  }
+  return {
+    id: node.id,
+    name: node.name,
+    stage: node.stage,
+    domain: node.domain,
+    description: node.description
   };
 }
 
@@ -200,6 +271,13 @@ function createNotFoundGraph(topic) {
     generator: "static-math-knowledge-base-v1",
     nodeCount: 1,
     edgeCount: 0,
+    target: null,
+    coreConcepts: [],
+    directPrerequisites: [],
+    allPrerequisites: [],
+    nextConcepts: [],
+    relatedConcepts: [],
+    questionSeedNodes: [],
     nodes: [
       {
         id: "not-found",
@@ -278,6 +356,9 @@ function renderInspector() {
   const node = getNode(state.selectedId);
   dom.selectedConcept.textContent = node.label;
   dom.selectedDescription.textContent = `${node.description}（阶段：${stageLabels[node.stage] || node.stage}；领域：${node.domain}）`;
+  dom.coreConceptList.innerHTML = renderTagList(state.graph.coreConcepts, "暂无核心概念。");
+  dom.prerequisiteList.innerHTML = renderTagList(state.graph.directPrerequisites, "暂无直接前置知识。");
+  dom.questionSeedList.innerHTML = renderTagList(state.graph.questionSeedNodes, "暂无候选节点。");
 
   const relatedEdges = state.graph.edges.filter((edge) => edge.from === node.id || edge.to === node.id);
   dom.relationList.innerHTML = relatedEdges.length
@@ -291,6 +372,23 @@ function renderInspector() {
     : `<li class="empty">当前节点暂无关系。</li>`;
 
   dom.jsonPreview.textContent = JSON.stringify(state.graph, null, 2);
+}
+
+function renderTagList(items, emptyText) {
+  if (!items || !items.length) {
+    return `<p class="empty">${emptyText}</p>`;
+  }
+
+  return items
+    .map((item) => {
+      return `
+        <button class="tag-card" type="button" data-node-jump="${escapeHtml(item.id)}">
+          <strong>${escapeHtml(item.name)}</strong>
+          <span>${escapeHtml(stageLabels[item.stage] || item.stage)} · ${escapeHtml(item.domain)}</span>
+        </button>
+      `;
+    })
+    .join("");
 }
 
 function render() {
@@ -347,6 +445,28 @@ dom.graph.addEventListener("click", (event) => {
   }
   state.selectedId = target.dataset.node;
   render();
+});
+
+document.querySelector(".inspector").addEventListener("click", (event) => {
+  const target = event.target.closest("[data-node-jump]");
+  if (!target) {
+    return;
+  }
+  const nodeId = target.dataset.nodeJump;
+  if (state.graph.nodes.some((node) => node.id === nodeId)) {
+    state.selectedId = nodeId;
+    render();
+    return;
+  }
+
+  const databaseNode = getDatabaseNode(nodeId);
+  if (databaseNode) {
+    state.graph = buildSubgraph(databaseNode);
+    state.selectedId = databaseNode.id;
+    dom.topicInput.value = databaseNode.name;
+    dom.statusText.textContent = `已切换到“${databaseNode.name}”的知识图谱。`;
+    render();
+  }
 });
 
 dom.exportBtn.addEventListener("click", copyGraphJson);
